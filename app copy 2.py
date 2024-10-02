@@ -1,9 +1,10 @@
 from flask import Flask, render_template, request, jsonify
-from transformers import pipeline
+from transformers import RagTokenizer, RagRetriever, RagSequenceForGeneration
 import PyPDF2
 import docx
 import os
 from dotenv import load_dotenv
+from datasets import load_dataset
 
 # Load environment variables from a .env file
 load_dotenv()
@@ -12,8 +13,15 @@ app = Flask(__name__)
 # Global variable to store extracted document text
 extracted_text = ''
 
-# Initialize the question-answering pipeline
-qa_pipeline = pipeline("question-answering", model="deepset/roberta-base-squad2")
+# Initialize the RAG components
+model_name = "facebook/rag-token-base"
+
+# Load the tokenizer and generator for RAG
+tokenizer = RagTokenizer.from_pretrained(model_name)
+generator = RagSequenceForGeneration.from_pretrained(model_name)
+
+# Optional: Initialize the retriever
+retriever = None
 
 @app.route('/')
 def index():
@@ -45,8 +53,8 @@ def ask_question():
         # Preprocess the question
         question = preprocess_question(question)
         
-        # Call the QA pipeline with the extracted text and user question
-        response = call_qa_pipeline(question, extracted_text)
+        # Call the RAG pipeline with the extracted text and user question
+        response = call_rag_pipeline(question)
         print(f"Pipeline response: {response}")
         return jsonify({'response': response})
     except Exception as e:
@@ -70,9 +78,44 @@ def preprocess_question(question):
     question = question.strip()
     return question
 
-def call_qa_pipeline(question, context):
-    result = qa_pipeline(question=question, context=context)
-    return result['answer']
+def set_retriever(retriever_model_name):
+    global retriever
+    retriever = RagRetriever.from_pretrained(
+        retriever_model_name, 
+        index_name="exact", 
+        use_dummy_dataset=True, 
+        trust_remote_code=True
+    )
+
+def call_rag_pipeline(question):
+    # Tokenize the question
+    inputs = tokenizer(question, return_tensors="pt")
+    
+    if retriever:
+        # Retrieve relevant passages
+        retrieved_docs = retriever(inputs.input_ids, return_tensors="pt")
+        context_input_ids = retrieved_docs.context_input_ids
+        context_attention_mask = retrieved_docs.context_attention_mask
+    else:
+        # Use dummy context if no retriever is set
+        context_input_ids = inputs.input_ids
+        context_attention_mask = inputs.attention_mask
+    
+    # Prepare generation inputs
+    generation_inputs = {
+        "input_ids": inputs.input_ids,
+        "attention_mask": inputs.attention_mask,
+        "context_input_ids": context_input_ids,
+        "context_attention_mask": context_attention_mask,
+    }
+    
+    # Generate the answer
+    generation_output = generator.generate(**generation_inputs)
+    generated_text = tokenizer.batch_decode(generation_output, skip_special_tokens=True)[0]
+    
+    print(f"Generated text: {generated_text}")
+    
+    return generated_text
 
 if __name__ == "__main__":
     app.run(debug=True)

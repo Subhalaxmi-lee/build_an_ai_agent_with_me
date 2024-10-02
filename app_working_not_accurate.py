@@ -12,8 +12,8 @@ app = Flask(__name__)
 # Global variable to store extracted document text
 extracted_text = ''
 
-# Initialize the question-answering pipeline
-qa_pipeline = pipeline("question-answering", model="deepset/roberta-base-squad2")
+# Initialize the question-answering pipeline with PyTorch
+qa_pipeline = pipeline("question-answering", framework="pt")
 
 @app.route('/')
 def index():
@@ -42,11 +42,8 @@ def ask_question():
         return jsonify({'error': 'No document text available. Please upload a file first.'})
 
     try:
-        # Preprocess the question
-        question = preprocess_question(question)
-        
-        # Call the QA pipeline with the extracted text and user question
-        response = call_qa_pipeline(question, extracted_text)
+        # Call the question-answering pipeline with the extracted text and user question
+        response = call_qa_pipeline(extracted_text, question)
         print(f"Pipeline response: {response}")
         return jsonify({'response': response})
     except Exception as e:
@@ -65,14 +62,19 @@ def extract_text_from_doc(doc_file):
     text = ' '.join([para.text for para in doc.paragraphs])
     return text
 
-def preprocess_question(question):
-    # Remove unnecessary punctuation and whitespace
-    question = question.strip()
-    return question
-
-def call_qa_pipeline(question, context):
-    result = qa_pipeline(question=question, context=context)
-    return result['answer']
+def call_qa_pipeline(context, question):
+    # Split the context into chunks of 1000 characters
+    chunk_size = 1000
+    chunks = [context[i:i + chunk_size] for i in range(0, len(context), chunk_size)]
+    
+    answers = []
+    for chunk in chunks:
+        result = qa_pipeline(question=question, context=chunk)
+        answers.append(result['answer'])
+    
+    # Aggregate answers (for simplicity, just join them here)
+    aggregated_answer = ' '.join(answers)
+    return aggregated_answer
 
 if __name__ == "__main__":
     app.run(debug=True)
