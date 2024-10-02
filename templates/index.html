@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Q&A</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        form, #questionForm {
+            margin-bottom: 20px;
+        }
+        input[type="file"], select, input[type="text"], button {
+            margin: 10px 0;
+            padding: 10px;
+            width: 100%;
+            max-width: 300px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #responseArea {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Form to upload a file and select LLM -->
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" id="fileInput" name="file" accept=".pdf,.doc,.docx" required>
+            <select id="llmSelect" name="llm">
+                <option value="gpt-3.5-turbo">GPT-3.5</option>
+                <option value="o1-preview">o1 Preview</option>
+                <option value="gpt-4o">GPT-4</option>
+            </select>
+            <button type="submit">Upload Document</button>
+        </form>
+
+        <div id="uploadMessage"></div>
+
+        <!-- Form to ask a question after document is uploaded -->
+        <div id="questionForm" style="display:none;">
+            <input type="text" id="questionInput" placeholder="Ask a question about the document" required>
+            <button id="askButton">Ask Question</button>
+        </div>
+
+        <div id="responseArea"></div>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            
+            const formData = new FormData();
+            formData.append('file', document.getElementById('fileInput').files[0]);
+            formData.append('llm', document.getElementById('llmSelect').value);
+            
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            document.getElementById('uploadMessage').innerText = data.message;
+            document.getElementById('questionForm').style.display = 'block';  // Show question form after upload
+        });
+    
+        document.getElementById('askButton').addEventListener('click', async function() {
+            const question = document.getElementById('questionInput').value;
+            const llm = document.getElementById('llmSelect').value;
+    
+            const response = await fetch('/ask_question', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ question: question, llm: llm })
+            });
+    
+            const data = await response.json();
+            console.log(data);  // Log the response for debugging
+    
+            if (data.response) {
+                document.getElementById('responseArea').innerText = data.response;
+            } else if (data.error) {
+                document.getElementById('responseArea').innerText = data.error;
+            } else {
+                document.getElementById('responseArea').innerText = 'Unexpected response format.';
+            }
+        });
+    </script>
+</body>
+</html>
