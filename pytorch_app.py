@@ -1,3 +1,4 @@
+# DISCLAIMER THIS DOES NOT WORKING AS OF NOW
 from flask import Flask, render_template, request, jsonify
 from transformers import pipeline
 import PyPDF2
