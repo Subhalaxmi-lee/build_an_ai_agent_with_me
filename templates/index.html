@@ -16,10 +16,14 @@
       }
       .container {
         text-align: center;
+        width: 350px;
         background: white;
         padding: 20px;
         border-radius: 8px;
         box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        margin: 0 auto;
+        position: relative;
+        z-index: 1;
       }
       form,
       #questionForm {
@@ -45,7 +49,10 @@
         background-color: #0056b3;
       }
       #responseArea {
+        background: white;
         margin-top: 20px;
+        height: 700px;
+        width: 450px;
       }
     </style>
   </head>
@@ -78,9 +85,8 @@
           required />
         <button id="askButton">Ask Question</button>
       </div>
-
-      <div id="responseArea"></div>
     </div>
+    <div id="responseArea"></div>
 
     <script>
       document
@@ -93,7 +99,7 @@
             "file",
             document.getElementById("fileInput").files[0]
           );
-        //   formData.append("llm", document.getElementById("llmSelect").value);
+          //   formData.append("llm", document.getElementById("llmSelect").value);
 
           const response = await fetch("/upload", {
             method: "POST",
